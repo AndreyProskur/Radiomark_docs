@@ -1,14 +1,10 @@
 ---
-title: API Reference
+title: API
 sidebar_position: 2
+description: Интерактивная документация API Radiomark
+hide_table_of_contents: true
 ---
 
-# API платформы Radiomark
+import ApiDocMdx from '@theme/ApiDocMdx';
 
-Полная спецификация доступна в [интерактивной документации](/api/).
-
-## Основные эндпоинты
-(здесь можно перечислить ключевые методы)
-
-## Аутентификация
-Bearer JWT.
+<ApiDocMdx id="radiomark-api" />
