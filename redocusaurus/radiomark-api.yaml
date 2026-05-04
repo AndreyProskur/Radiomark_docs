@@ -1,0 +1,696 @@
+openapi: 3.0.0
+info:
+  title: Radiomark service
+  description: OpenApi для платформы Radiomark
+  version: 1.0.0
+servers:
+  - url: https://radiomark.com
+security:
+  - BearerAuth: []
+tags:
+  - name: Uploads
+    description: Временные файлы до создания снимка
+  - name: Studies
+    description: Управление медицинскими снимками
+  - name: Annotations
+    description: Разметка структур на снимках (является составной частью снимка)
+paths:
+  /api/v1/studies/uploads:
+    post:
+      tags:
+        - Uploads
+      summary: Загрузка нового снимка во временное хранилище
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
+      responses:
+        '200':
+          description: Файл успешно загружен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Файл слишком большой
+        '415':
+          description: Неподдерживаемый формат файла
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies/uploads/{uploadId}:
+    get:
+      tags:
+        - Uploads
+      summary: Получить метаданные и временный URL загруженного файла
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          description: Идентификатор загруженного файла
+          schema:
+            type: string
+            example: upload-abc123
+      responses:
+        '200':
+          description: Данные временного снимка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadVizualResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Uploads
+      summary: Изменить метаданные временного снимка (без замены файла)
+      parameters:
+        - name: uploadId
+          in: path
+          description: Идентификатор загруженного файла
+          required: true
+          schema:
+            type: string
+            example: upload-abc123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadPatchRequest'
+      responses:
+        '200':
+          description: Метаданные обновлены
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Uploads
+      summary: Удаление временного файла
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          description: Идентификатор загруженного файла
+          schema:
+            type: string
+            example: upload-abc123
+      responses:
+        '204':
+          description: Файл успешно удалён
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies/submissions:
+    post:
+      tags:
+        - Studies
+      summary: Создать новый снимок или отправить исправленный на модерацию
+      description: >-
+        Если в теле запроса передан `uploadId`, создаётся новый снимок из
+        временного файла Если передан `studyId`, обновляется существующий снимок
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitStudyRequest'
+      responses:
+        '201':
+          description: Снимок успешно создан/обновлён и отправлен на модерацию
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitStudyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '409':
+          description: Снимок не находится в статусе returned (для studyId)
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies:
+    get:
+      tags:
+        - Studies
+      summary: Получение списка всех снимков
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Фильтр по статусу снимка
+          schema:
+            type: string
+            example: returned
+        - name: modality
+          in: query
+          required: false
+          description: Фильтр по типу исследования
+          schema:
+            $ref: '#/components/schemas/Modality'
+        - name: region
+          in: query
+          required: false
+          description: Фильтр по области исследования
+          schema:
+            $ref: '#/components/schemas/Region'
+      responses:
+        '200':
+          description: Список снимков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies/{studyId}:
+    get:
+      tags:
+        - Studies
+      summary: Получить детали снимка для экрана истории
+      parameters:
+        - name: studyId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SN-041
+      responses:
+        '200':
+          description: Детали снимка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyDetailsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies/{studyId}/full:
+    get:
+      tags:
+        - Studies
+      summary: Получить полную информацию о снимке (для экрана разметки)
+      parameters:
+        - name: studyId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SN-041
+      responses:
+        '200':
+          description: Полная информация о снимке
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyFullResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/studies/{studyId}/annotations:
+    get:
+      tags:
+        - Annotations
+      summary: Получить список размеченных структур
+      parameters:
+        - name: studyId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SN-041
+      responses:
+        '200':
+          description: Список размеченных структур
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnotationListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Annotations
+      summary: Добавить новую размеченную структуру
+      parameters:
+        - name: studyId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SN-041
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnotationRequest'
+      responses:
+        '201':
+          description: Структура успешно добавлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnotationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Снимок не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  schemas:
+    Modality:
+      type: string
+      description: Тип исследования
+      enum:
+        - X-Ray
+        - MRI
+        - CT
+      example: MRI
+    Region:
+      type: string
+      description: Область исследования
+      example: Lungs
+    Coordinates:
+      type: object
+      description: Координаты размеченной области
+      required:
+        - x
+        - 'y'
+        - width
+        - height
+      properties:
+        x:
+          type: number
+          description: X-координата верхнего левого угла
+          example: 120
+        'y':
+          type: number
+          description: Y-координата верхнего левого угла
+          example: 80
+        width:
+          type: number
+          description: Ширина области
+          example: 200
+        height:
+          type: number
+          description: Высота области
+          example: 150
+    UploadRequest:
+      type: object
+      description: Данные для загрузки нового снимка
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Файл медицинского снимка
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        description:
+          type: string
+          example: Жалобы на боли в груди
+          description: Краткое описание (жалобы, анамнез, симптомы)
+    UploadResponse:
+      type: object
+      description: Ответ при успешной загрузке снимка
+      required:
+        - uploadId
+      properties:
+        uploadId:
+          type: string
+          description: Уникальный ID загруженного снимка
+          example: upload-abc123
+        expiresAt:
+          type: string
+          format: date-time
+          description: Время жизни файла
+          example: '2026-04-16T10:30:00Z'
+    UploadVizualResponse:
+      type: object
+      required:
+        - uploadId
+        - modality
+        - region
+        - imageUrl
+      properties:
+        uploadId:
+          type: string
+          example: upload-abc123
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        imageUrl:
+          type: string
+          format: uri
+          description: Временный URL изображения
+          example: https://cdn.radiomark.com/temp/abc123.dicom
+    UploadPatchRequest:
+      type: object
+      properties:
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        description:
+          type: string
+          example: Описание снимка от пациента
+    SubmitStudyRequest:
+      type: object
+      description: Данные для создания или обновления снимка
+      required:
+        - modality
+        - region
+        - description
+        - conclusion
+      properties:
+        uploadId:
+          type: string
+          description: Идентификатор временного файла (для нового снимка)
+        studyId:
+          type: string
+          description: Идентификатор существующего снимка (для исправления возвращённого)
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        description:
+          type: string
+          description: Описание снимка
+          example: Наличие области затемнения в верхней доле правого лёгкого
+        conclusion:
+          type: string
+          description: Заключение врача
+          example: У пациента выявлена пневмония верхней доли правого лёгкого
+        annotations:
+          type: array
+          description: Размеченные структуры
+          items:
+            $ref: '#/components/schemas/AnnotationRequest'
+        mode:
+          type: string
+          description: Режимы МРТ
+          enum:
+            - T1
+            - T2
+            - PD
+            - FLAIR
+          example: T2
+        contrast:
+          type: string
+          description: Тип контрастного вещества
+          enum:
+            - None
+            - Oral
+            - IV
+            - Oral-IV
+          example: None
+        sliceThickness:
+          type: number
+          description: Толщина среза в мм
+          minimum: 0.1
+          maximum: 30
+          example: 2
+    SubmitStudyResponse:
+      type: object
+      description: Ответ при успешном создании или обновлении снимка
+      required:
+        - studyId
+        - status
+      properties:
+        studyId:
+          type: string
+          description: Уникальный идентификатор снимка
+          example: SN-041
+        status:
+          type: string
+          description: Статус снимка
+          enum:
+            - pending
+            - returned
+            - published
+          example: pending
+        submittedAt:
+          type: string
+          format: date-time
+          description: Дата и время отправки
+          example: '2026-04-15T11:45:00Z'
+    AnnotationRequest:
+      type: object
+      description: Данные для создания размеченной структуры
+      required:
+        - name
+        - coordinates
+      properties:
+        name:
+          type: string
+          description: Название структуры
+          example: Правое легкое
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+    AnnotationResponse:
+      type: object
+      description: Размеченная стуктура
+      required:
+        - annotationID
+        - coordinates
+      properties:
+        annotationID:
+          type: string
+          description: Уникальный идентификатор структуры
+          example: ann-001
+        name:
+          type: string
+          description: Название структуры
+          example: Правое лёгкое
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+    AnnotationListResponse:
+      type: object
+      description: Список размеченных структур
+      required:
+        - studyId
+        - annotations
+      properties:
+        studyId:
+          type: string
+          description: Уникальный идентификатор снимка
+          example: SN-041
+        annotations:
+          type: array
+          description: Массив размеченных структур
+          items:
+            $ref: '#/components/schemas/AnnotationResponse'
+        total:
+          type: integer
+          description: Количество размеченных структур
+          example: 3
+    StudyFullResponse:
+      type: object
+      description: Полная информация о снимке для экрана разметки
+      required:
+        - studyId
+        - status
+        - imageUrl
+      properties:
+        studyId:
+          type: string
+          description: Уникальный идентификатор снимка
+          example: SN-041
+        status:
+          type: string
+          description: Статус снимка
+          enum:
+            - pending
+            - returned
+            - published
+          example: returned
+        imageUrl:
+          type: string
+          format: uri
+          description: URL полноразмерного изображения
+          example: https://radiomark.com/studies/SN-041/dicom
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        description:
+          type: string
+          description: Описание снимка
+          example: Наличие области затемнения в верхней доле правого лёгкого
+        conclusion:
+          type: string
+          description: Заключение врача
+          example: У пациента выявлена пневмония верхней доли правого лёгкого
+        annotations:
+          type: array
+          description: Размеченные структуры
+          items:
+            $ref: '#/components/schemas/AnnotationRequest'
+        mode:
+          type: string
+          description: Режимы МРТ
+          enum:
+            - T1
+            - T2
+            - PD
+            - FLAIR
+          example: T2
+        contrast:
+          type: string
+          description: Тип контрастного вещества
+          enum:
+            - None
+            - Oral
+            - IV
+            - Oral-IV
+          example: None
+        sliceThickness:
+          type: number
+          description: Толщина среза в мм
+          minimum: 0.1
+          maximum: 30
+          example: 2
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания
+          example: '2026-04-15T10:45:00Z'
+        returnReason:
+          type: string
+          description: Причина возврата снимка
+          example: Неполная разметка структур легких
+    StudyDetailsResponse:
+      type: object
+      description: Детальная информация о снимке для экрана истории
+      required:
+        - studyId
+        - status
+        - thumbnailUrl
+      properties:
+        studyId:
+          type: string
+          description: Уникальный идентификатор снимка
+          example: SN-041
+        status:
+          type: string
+          description: Статус снимка
+          enum:
+            - pending
+            - returned
+            - published
+          example: returned
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: URL миниатюры снимка
+          example: https://radiomark.com/studies/SN-041/thumbnail.jpg
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        conclusion:
+          type: string
+          description: Заключение врача
+          example: У пациента выявлена пневмония верхней доли правого лёгкого
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания
+          example: '2026-04-15T10:45:00Z'
+    StudyListResponse:
+      type: object
+      description: Ответ со списком снимков
+      required:
+        - studies
+      properties:
+        studies:
+          type: array
+          description: Массив снимков
+          items:
+            $ref: '#/components/schemas/StudyListItem'
+        total:
+          type: integer
+          description: Общее количество снимков
+          example: 4
+    StudyListItem:
+      type: object
+      description: Краткая информация о снимке для списка
+      required:
+        - studyId
+        - status
+        - modality
+      properties:
+        studyId:
+          type: string
+          description: Уникальный идентификатор снимка
+          example: SN-041
+        status:
+          type: string
+          description: Статус снимка
+          enum:
+            - pending
+            - returned
+            - published
+          example: returned
+        modality:
+          $ref: '#/components/schemas/Modality'
+        region:
+          $ref: '#/components/schemas/Region'
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания
+          example: '2026-04-15T10:30:00Z'
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+    Unauthorized:
+      description: Неавторизован
+    InternalError:
+      description: Внутренняя ошибка сервера
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
