@@ -17,7 +17,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Проектирование',
+      label: 'Модели и диаграммы',
       link: { type: 'doc', id: 'design/index' },
       items: [
         'design/uml-use-case',
@@ -38,7 +38,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Интерфейсы',
+      label: 'Интерфейсы и API',
       link: { type: 'doc', id: 'interfaces/index' },
       items: [
         'interfaces/wireframes',

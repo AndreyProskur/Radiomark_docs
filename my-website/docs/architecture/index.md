@@ -4,7 +4,7 @@ title: Архитектура
 
 # Архитектура Radiomark
 
-Диаграммы, модели данных, асинхронное взаимодействие и технологии хранения.
+Асинхронное взаимодействие и технологии хранения.
 
 <div className="cards">
 <a className="card" href="/Radiomark_docs/docs/architecture/async-interaction">
